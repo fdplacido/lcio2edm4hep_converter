@@ -6,7 +6,7 @@
 #include "GaudiKernel/Property.h"
 
 // edm4hep
-#include "k4FWCore/DataHandle.h"
+#include "FWCore/DataHandle.h"
 #include "TTree.h"
 
 

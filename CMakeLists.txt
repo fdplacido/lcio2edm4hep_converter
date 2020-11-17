@@ -25,5 +25,5 @@ if(NOT CMAKE_CXX_STANDARD MATCHES "14|17")
 endif()
 
 gaudi_project(K4ProjectTemplate v0r1
-              USE k4FWCore v0r1
+              USE K4FWCore v0r1
               USE Gaudi v32r2 )

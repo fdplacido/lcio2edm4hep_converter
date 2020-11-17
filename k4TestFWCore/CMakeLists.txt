@@ -14,7 +14,7 @@ gaudi_depends_on_subdirs(GaudiAlg GaudiKernel)
 gaudi_add_module(k4TestFWCorePlugins
                  src/components/*.cpp
                  INCLUDE_DIRS k4FWCore EDM4HEP::edm4hep
-                 LINK_LIBRARIES GaudiKernel k4FWCore  EDM4HEP::edm4hepDict)
+                 LINK_LIBRARIES GaudiKernel FWCore  EDM4HEP::edm4hepDict)
 
 
 include(CTest)
