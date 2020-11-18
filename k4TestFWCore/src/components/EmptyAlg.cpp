@@ -31,49 +31,28 @@ EmptyAlg::EmptyAlg(const std::string& name, ISvcLocator* svcLoc) : GaudiAlgorith
 StatusCode EmptyAlg::initialize() {
   info() << "start EmptyAlg::initialize()\n";
 
-  TFile* fileIn = new TFile("/eos/experiment/fcc/ee/generation/DelphesEvents/fcc_tmp/p8_ee_Ztautau_ecm91_EvtGen_Tau2MuGamma/events_001720714.root","READ");
-  TTree* treeIn = (TTree*)fileIn->Get("events");
-  // events *event = new events(treeIn);
+  TFile* input_file = new TFile("/eos/experiment/fcc/ee/generation/DelphesEvents/fcc_tmp/p8_ee_Ztautau_ecm91_EvtGen_Tau2MuGamma/events_001720714.root","READ");
+  TTree* input_tree = (TTree*)input_file->Get("events");
+  // events *event = new events(input_tree);
 
-  // int nbranches = int(treeIn->GetNbranches());
-  // int nentries = int(treeIn->GetEntries());
+  // int nbranches = int(input_tree->GetNbranches());
+  int nentries = int(input_tree->GetEntries());
 
-  // treeIn->Print();
+  info() << "nentries: " << nentries << "\n";
 
-  // treeIn->SetBranchAddress("ReconstructedParticles", &elem1);
-  std::vector<edm4hep::ReconstructedParticleData> test1;
-  std::vector<edm4hep::ReconstructedParticleData>* ptest1 = &test1;
-
-  info() << "vector size1: " << test1.size() << "\n";
-
-  TBranch* branch = treeIn->GetBranch("ReconstructedParticles");
-  branch->SetAddress(&ptest1);
-  branch->GetEntry(0);
-
-  info() << "vector size2: " << test1.size() << "\n";
-
-  for (auto& e : test1) {
-    info() << "charge: " << e.charge << "\n";
-    info() << "momentum.x: " << e.momentum.x << "\n";
-    info() << "momentum.y: " << e.momentum.y << "\n";
-    info() << "momentum.z: " << e.momentum.z << "\n";
-    info() << "energy: " << e.energy << "\n";
-    info() << "mass: " << e.mass << "\n";
-    info() << "tracks_begin: " << e.tracks_begin << "\n";
-    info() << "\n";
-  }
+  // input_tree->Print();
 
   // for(int i=0; i < 5; ++i) {
-  //   treeIn->GenEntry(i);
-  //   test1->
+  //   input_tree->GenEntry(i);
+  //   rp_vec->
   // }
 
   // std::vector<edm4hep::ReconstructedParticleData>* elem1;
-  // treeIn->SetBranchAddress("ReconstructedParticles", &elem1);
+  // input_tree->SetBranchAddress("ReconstructedParticles", &elem1);
 
   // for (int i=0; i < 2; ++i) {
-  //   treeIn->Show(i);
-  //   treeIn->GetEvent(i);
+  //   input_tree->Show(i);
+  //   input_tree->GetEvent(i);
   //   // info() << "event1: " << elem1[0]->energy << "\n";
   //   // info() << "Charge: " << elem1.charge << "\n";
   //   // info() << "Mass: " << elem1.mass << "\n";
@@ -83,68 +62,99 @@ StatusCode EmptyAlg::initialize() {
   // // for(int i = 0; i < nbranches; ++i)
   // for(int i = 0; i < 5; ++i)
   // {
-  //   TBranch* theBranch = (TBranch *) (treeIn->GetListOfBranches())->At(i);
+  //   TBranch* theBranch = (TBranch *) (input_tree->GetListOfBranches())->At(i);
   //   theBranch->Print();
   // }
 
   // for(int i = 0; i < nentries; ++i)
-  //   treeIn->GetEvent(i);
-  // }
+  //   input_tree->GetEvent(i);
+  // }  
 
-  delete fileIn;
-
-
-  // LCIO
-
+  // LCIO stuff to write file
   const std::string output_filename {"output.slcio"};
   IO::LCWriter* my_lcwriter = nullptr;
-  IMPL::LCCollectionVec* my_evtSumCol = nullptr;
+  // IMPL::LCCollectionVec* my_evtSumCol = nullptr;
   const std::string detector_name {"ToyTracker"};
 
   if (!output_filename.empty()) {
     my_lcwriter = lcio::LCFactory::getInstance()->createLCWriter();
     my_lcwriter->open(output_filename , lcio::LCIO::WRITE_NEW);
-    my_evtSumCol = new lcio::LCCollectionVec(lcio::LCIO::LCGENERICOBJECT) ;
-  }
+    // my_evtSumCol = new lcio::LCCollectionVec(lcio::LCIO::LCGENERICOBJECT) ;
+  }    
 
-  // loop over events
-  if( my_evtSumCol ){
-    for (int i=0; i<3; ++i) {
-      auto evt = new lcio::LCEventImpl;
-      evt->setEventNumber(i);
-      evt->setDetectorName(detector_name);
-      evt->setRunNumber(1);
-      const auto p1 = (std::chrono::system_clock::now().time_since_epoch()).count();
-      evt->setTimeStamp(p1);
+  // loop over the events
+  for (int e = 0; e < nentries; ++e) {
 
-      auto* recops = new lcio::LCCollectionVec(lcio::LCIO::RECONSTRUCTEDPARTICLE);
-      auto* tracks = new lcio::LCCollectionVec(lcio::LCIO::TRACK);
+    // process just first 3
+    if (e == 3) break;
 
-      // loop over reconstructed particles
-      for (int i=0; i<2; ++i) {
-        auto* recp = new lcio::ReconstructedParticleImpl;
-        recp->setCharge(2.2);
-        double m[3] = {1.1, 2.2, 3.3};
-        recp->setMomentum(m);
-        recp->setEnergy(5.5);
+    // input_tree->SetBranchAddress("ReconstructedParticles", &elem1);
+    std::vector<edm4hep::ReconstructedParticleData> rp_vec;
+    std::vector<edm4hep::ReconstructedParticleData>* prp_vec = &rp_vec;
 
-        // if
+    TBranch* rp_branch = input_tree->GetBranch("ReconstructedParticles");
+    rp_branch->SetAddress(&prp_vec);
+    rp_branch->GetEntry(e); // here is the loop over the events
+
+    std::vector<edm4hep::TrackState> eft_vec;
+    std::vector<edm4hep::TrackState>* peft_vec = &eft_vec;
+
+    TBranch* eft_branch = input_tree->GetBranch("EFlowTrack_1");
+    eft_branch->SetAddress(&peft_vec);
+    eft_branch->GetEntry(e);
+
+    info() << "number of rec particles: " << rp_vec.size() << "\n";
+
+    // This would be done for every event
+    auto event = new lcio::LCEventImpl;
+    event->setEventNumber(e);
+    event->setDetectorName(detector_name);
+    event->setRunNumber(1);
+    const auto p1 = (std::chrono::system_clock::now().time_since_epoch()).count();
+    event->setTimeStamp(p1);
+
+    auto* recops = new lcio::LCCollectionVec(lcio::LCIO::RECONSTRUCTEDPARTICLE);
+    auto* tracks = new lcio::LCCollectionVec(lcio::LCIO::TRACK);
+
+    // loop over EDM4hep particles
+    // for (auto& rp : rp_vec) {
+    for(uint rp=0; rp < rp_vec.size(); ++rp) {
+
+      // print EDM4hep particle for checks
+      info() << "Particle Info:\n";
+      info() << "charge: " << rp_vec.at(rp).charge << "\n";
+      info() << "momentum.x: " << rp_vec.at(rp).momentum.x << "\n";
+      info() << "momentum.y: " << rp_vec.at(rp).momentum.y << "\n";
+      info() << "momentum.z: " << rp_vec.at(rp).momentum.z << "\n";
+      info() << "energy: " << rp_vec.at(rp).energy << "\n";
+      info() << "mass: " << rp_vec.at(rp).mass << "\n";
+      info() << "tracks_begin: " << rp_vec.at(rp).tracks_begin << "\n";
+      info() << "\n";
+
+      auto* recp = new lcio::ReconstructedParticleImpl;
+      recp->setCharge(rp_vec.at(rp).charge);
+      double m[3] = {rp_vec.at(rp).momentum.x, rp_vec.at(rp).momentum.y, rp_vec.at(rp).momentum.z};
+      recp->setMomentum(m);
+      recp->setEnergy(rp_vec.at(rp).energy);
+
+      if (rp_vec.at(rp).tracks_begin < eft_vec.size()) {
         auto* track = new lcio::TrackImpl;
+        auto trkind = rp_vec.at(rp).tracks_begin;
 
-        track->setD0(1.1);
-        track->setPhi(2.2);
-        track->setOmega(3.3);
-        track->setZ0(4.4);
-        track->setTanLambda(5.5);
+        track->setD0(eft_vec.at(trkind).D0);
+        track->setPhi(eft_vec.at(trkind).phi);
+        track->setOmega(eft_vec.at(trkind).omega);
+        track->setZ0(eft_vec.at(trkind).Z0);
+        // track->setTanLambda(eft_vec.at(trkind).tanLamda);
         track->subdetectorHitNumbers().resize(50);
 
         std::array<float, 15> cov;
         // float *cov;
-        cov[0]  = 1;
-        cov[2]  = 1;
-        cov[5]  = 1;
-        cov[9]  = 1;
-        cov[14] = 1;
+        cov[0]  = rp_vec.at(rp).covMatrix[0];
+        cov[2]  = rp_vec.at(rp).covMatrix[5];
+        cov[5]  = rp_vec.at(rp).covMatrix[9];
+        cov[9]  = rp_vec.at(rp).covMatrix[12];
+        cov[14] = rp_vec.at(rp).covMatrix[14];
 
         track->setCovMatrix(cov.data());
 
@@ -153,30 +163,28 @@ StatusCode EmptyAlg::initialize() {
         recp->addTrack(track);
         recops->addElement(recp);
       }
-
-      evt->addCollection(tracks, lcio::LCIO::TRACK);
-      evt->addCollection(recops, lcio::LCIO::RECONSTRUCTEDPARTICLE);
-
-      // event.setEventNumber( iEvent )
-      // event.setDetectorName( str(detectorName ))
-      // event.setRunNumber( 1 )
-      // event.setTimeStamp( int( time() * 1000000000. ) )
-
-      // tracks = IMPL.LCCollectionVec(EVENT.LCIO.TRACK)
-      // recops = IMPL.LCCollectionVec(EVENT.LCIO.RECONSTRUCTEDPARTICLE)
     }
 
+    event->addCollection(tracks, lcio::LCIO::TRACK);
+    event->addCollection(recops, lcio::LCIO::RECONSTRUCTEDPARTICLE);
+
+    my_lcwriter->writeEvent(event);
   }
+
+  // clean up ?
+  my_lcwriter->flush();
+  my_lcwriter->close();
+  delete input_file;
+  // delete recops;
+  // delete tracks;
+  // delete event;
 
   return GaudiAlgorithm::initialize();
   // return StatusCode::SUCCESS;
 }
 
 StatusCode EmptyAlg::execute() {
-  info() << "EmptyAlg::execute before\n";
-
-  info() << "EmptyAlg::execute2 after\n";
-
+  info() << "EmptyAlg::execute()\n";
   return StatusCode::SUCCESS;
 }
 
