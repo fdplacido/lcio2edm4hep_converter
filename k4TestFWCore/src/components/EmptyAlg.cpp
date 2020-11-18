@@ -8,6 +8,20 @@
 
 #include "edm4hep/RecoParticleRefData.h"
 
+#include <string>
+#include "lcio.h"
+#include "IO/LCWriter.h"
+#include "IMPL/LCEventImpl.h"
+#include "IMPL/LCRunHeaderImpl.h"
+#include "IMPL/LCCollectionVec.h"
+#include "IMPL/MCParticleImpl.h"
+#include "IMPL/ReconstructedParticleImpl.h"
+#include "IMPL/TrackImpl.h"
+#include "IMPL/ParticleIDImpl.h"
+
+#include <ctime>
+#include <chrono>
+
 DECLARE_COMPONENT(EmptyAlg)
 
 EmptyAlg::EmptyAlg(const std::string& name, ISvcLocator* svcLoc) : GaudiAlgorithm(name, svcLoc) {
@@ -21,8 +35,8 @@ StatusCode EmptyAlg::initialize() {
   TTree* treeIn = (TTree*)fileIn->Get("events");
   // events *event = new events(treeIn);
 
-  int nbranches = int(treeIn->GetNbranches());
-  int nentries = int(treeIn->GetEntries());
+  // int nbranches = int(treeIn->GetNbranches());
+  // int nentries = int(treeIn->GetEntries());
 
   // treeIn->Print();
 
@@ -78,6 +92,81 @@ StatusCode EmptyAlg::initialize() {
   // }
 
   delete fileIn;
+
+
+  // LCIO
+
+  const std::string output_filename {"output.slcio"};
+  IO::LCWriter* my_lcwriter = nullptr;
+  IMPL::LCCollectionVec* my_evtSumCol = nullptr;
+  const std::string detector_name {"ToyTracker"};
+
+  if (!output_filename.empty()) {
+    my_lcwriter = lcio::LCFactory::getInstance()->createLCWriter();
+    my_lcwriter->open(output_filename , lcio::LCIO::WRITE_NEW);
+    my_evtSumCol = new lcio::LCCollectionVec(lcio::LCIO::LCGENERICOBJECT) ;
+  }
+
+  // loop over events
+  if( my_evtSumCol ){
+    for (int i=0; i<3; ++i) {
+      auto evt = new lcio::LCEventImpl;
+      evt->setEventNumber(i);
+      evt->setDetectorName(detector_name);
+      evt->setRunNumber(1);
+      const auto p1 = (std::chrono::system_clock::now().time_since_epoch()).count();
+      evt->setTimeStamp(p1);
+
+      auto* recops = new lcio::LCCollectionVec(lcio::LCIO::RECONSTRUCTEDPARTICLE);
+      auto* tracks = new lcio::LCCollectionVec(lcio::LCIO::TRACK);
+
+      // loop over reconstructed particles
+      for (int i=0; i<2; ++i) {
+        auto* recp = new lcio::ReconstructedParticleImpl;
+        recp->setCharge(2.2);
+        double m[3] = {1.1, 2.2, 3.3};
+        recp->setMomentum(m);
+        recp->setEnergy(5.5);
+
+        // if
+        auto* track = new lcio::TrackImpl;
+
+        track->setD0(1.1);
+        track->setPhi(2.2);
+        track->setOmega(3.3);
+        track->setZ0(4.4);
+        track->setTanLambda(5.5);
+        track->subdetectorHitNumbers().resize(50);
+
+        std::array<float, 15> cov;
+        // float *cov;
+        cov[0]  = 1;
+        cov[2]  = 1;
+        cov[5]  = 1;
+        cov[9]  = 1;
+        cov[14] = 1;
+
+        track->setCovMatrix(cov.data());
+
+        tracks->addElement(track);
+
+        recp->addTrack(track);
+        recops->addElement(recp);
+      }
+
+      evt->addCollection(tracks, lcio::LCIO::TRACK);
+      evt->addCollection(recops, lcio::LCIO::RECONSTRUCTEDPARTICLE);
+
+      // event.setEventNumber( iEvent )
+      // event.setDetectorName( str(detectorName ))
+      // event.setRunNumber( 1 )
+      // event.setTimeStamp( int( time() * 1000000000. ) )
+
+      // tracks = IMPL.LCCollectionVec(EVENT.LCIO.TRACK)
+      // recops = IMPL.LCCollectionVec(EVENT.LCIO.RECONSTRUCTEDPARTICLE)
+    }
+
+  }
 
   return GaudiAlgorithm::initialize();
   // return StatusCode::SUCCESS;
